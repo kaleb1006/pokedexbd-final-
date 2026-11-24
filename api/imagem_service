@@ -1,0 +1,10 @@
+from abc import ABC, abstractmethod
+
+
+class ImagemPokemonError(Exception):
+
+class ImagemPokemonService(ABC):
+
+    @abstractmethod
+    def baixar_imagem(self, numero_pokedex: int) -> bytes:
+        raise NotImplementedError
