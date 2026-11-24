@@ -1,0 +1,124 @@
+
+import sqlite3
+from contextlib import closing
+from abc import ABC, abstractmethod
+from typing import List, Optional
+from classes.pokemon import Pokemon
+ 
+ 
+class IPokemonRepository(ABC):
+ 
+    @abstractmethod
+    def inserir(self, p: Pokemon) -> int: ...
+ 
+    @abstractmethod
+    def listar_todos(self) -> List[Pokemon]: ...
+ 
+    @abstractmethod
+    def buscar_id(self, id: int) -> Optional[Pokemon]: ...
+ 
+    @abstractmethod
+    def buscar_nome(self, nome: str) -> List[Pokemon]: ...
+ 
+    @abstractmethod
+    def buscar_tipo(self, tipo: str) -> List[Pokemon]: ...
+ 
+    @abstractmethod
+    def atualizar(self, p: Pokemon) -> bool: ...
+ 
+    @abstractmethod
+    def deletar(self, id: int) -> bool: ...
+ 
+ 
+class PokemonRepositorySQLite(IPokemonRepository):
+    COLUNAS = ("id, numero_pokedex, nome, tipo_um, tipo_dois, "
+               "altura, peso, descricao, imagem, evolucao_antes, evolucao_depois")
+ 
+    def __init__(self, caminho_db: str = "pokedex.db"):
+        self.caminho_db = caminho_db
+        self._criar_tabela()
+ 
+    def _conectar(self):
+        return sqlite3.connect(self.caminho_db)
+ 
+    def _criar_tabela(self):
+        with closing(self._conectar()) as conn:
+            with conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS pokemon (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        numero_pokedex INTEGER NOT NULL UNIQUE,
+                        nome TEXT NOT NULL,
+                        tipo_um TEXT NOT NULL,
+                        tipo_dois TEXT,
+                        altura REAL,
+                        peso REAL,
+                        descricao TEXT,
+                        imagem BLOB,
+                        evolucao_antes TEXT,
+                        evolucao_depois TEXT
+                    )
+                """)
+ 
+    @staticmethod
+    def _linha_pokemon(l) -> Pokemon:
+        return Pokemon(id=l[0], numero_pokedex=l[1], nome=l[2],
+                       tipo_um=l[3], tipo_dois=l[4], altura=l[5], peso=l[6],
+                       descricao=l[7], imagem=l[8],
+                       evolucao_antes=l[9], evolucao_depois=l[10])
+ 
+    def _consultar(self, sql: str, params=()) -> List[Pokemon]:
+        # closing() garante conn.close() mesmo se der erro
+        with closing(self._conectar()) as conn:
+            linhas = conn.execute(sql, params).fetchall()
+        return [self._linha_pokemon(l) for l in linhas]
+ 
+    def _escrever(self, sql: str, params=()):
+        """INSERT/UPDATE/DELETE: faz commit se der certo, rollback se der erro
+        e sempre fecha a conexão. Devolve (lastrowid, rowcount)."""
+        with closing(self._conectar()) as conn:
+            with conn:
+                cur = conn.execute(sql, params)
+                return cur.lastrowid, cur.rowcount
+ 
+    def inserir(self, p: Pokemon) -> int:
+        novo_id, _ = self._escrever(
+            """INSERT INTO pokemon (numero_pokedex, nome, tipo_um, tipo_dois,
+               altura, peso, descricao, imagem, evolucao_antes, evolucao_depois)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (p.numero_pokedex, p.nome, p.tipo_um, p.tipo_dois, p.altura,
+             p.peso, p.descricao, p.imagem, p.evolucao_antes, p.evolucao_depois))
+        return novo_id
+ 
+    def listar_todos(self) -> List[Pokemon]:
+        return self._consultar(
+            f"SELECT {self.COLUNAS} FROM pokemon ORDER BY numero_pokedex")
+ 
+    def buscar_id(self, id: int) -> Optional[Pokemon]:
+        r = self._consultar(
+            f"SELECT {self.COLUNAS} FROM pokemon WHERE id = ?", (id,))
+        return r[0] if r else None
+ 
+    def buscar_nome(self, nome: str) -> List[Pokemon]:
+        return self._consultar(
+            f"SELECT {self.COLUNAS} FROM pokemon WHERE nome LIKE ?",
+            (f"%{nome}%",))
+ 
+    def buscar_tipo(self, tipo: str) -> List[Pokemon]:
+        return self._consultar(
+            f"SELECT {self.COLUNAS} FROM pokemon "
+            "WHERE tipo_um = ? COLLATE NOCASE OR tipo_dois = ? COLLATE NOCASE",
+            (tipo, tipo))
+ 
+    def atualizar(self, p: Pokemon) -> bool:
+        _, linhas = self._escrever(
+            """UPDATE pokemon SET numero_pokedex=?, nome=?, tipo_um=?, tipo_dois=?,
+               altura=?, peso=?, descricao=?, imagem=?,
+               evolucao_antes=?, evolucao_depois=? WHERE id=?""",
+            (p.numero_pokedex, p.nome, p.tipo_um, p.tipo_dois, p.altura, p.peso,
+             p.descricao, p.imagem, p.evolucao_antes, p.evolucao_depois, p.id))
+        return linhas > 0
+ 
+    def deletar(self, id: int) -> bool:
+        _, linhas = self._escrever("DELETE FROM pokemon WHERE id = ?", (id,))
+        return linhas > 0
