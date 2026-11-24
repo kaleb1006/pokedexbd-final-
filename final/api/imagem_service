@@ -1,0 +1,19 @@
+from abc import ABC, abstractmethod
+
+
+class ImagemPokemonError(Exception):
+    """Erro próprio do serviço de imagens (mensagem amigável para a tela)."""
+
+
+class ImagemPokemonService(ABC):
+    """Contrato: toda classe de imagens precisa ter o método baixar_imagem."""
+
+    @abstractmethod
+    def baixar_imagem(self, numero_pokedex: int) -> bytes:
+        """
+        Baixa a imagem do Pokémon pelo número da Pokédex e devolve os
+        bytes do PNG, prontos para gravar no banco (coluna BLOB).
+
+        Lança ImagemPokemonError se o número for inválido ou o download falhar.
+        """
+        raise NotImplementedError
