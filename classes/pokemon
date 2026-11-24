@@ -1,0 +1,16 @@
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class Pokemon:
+    numero_pokedex: int
+    nome: str
+    tipo_um: str
+    tipo_dois: Optional[str] = None
+    altura: Optional[float] = None
+    peso: Optional[float] = None
+    descricao: Optional[str] = None
+    imagem: Optional[bytes] = None
+    id: Optional[int] = None
+    evolucao_antes: Optional[str] = None
+    evolucao_depois: Optional[str] = None
